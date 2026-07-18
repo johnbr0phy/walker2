@@ -3,3 +3,16 @@
 
 # macOS
 .DS_Store
+
+# Local tooling
+.claude/
+
+# Grok art-session output: reference material, never committed (hundreds of MB)
+archive/
+assets/designs/
+_gen/aim/
+_gen/aim_layers/
+_gen/animation/
+_gen/designs/
+_gen/walk_research/
+_gen/parts_qa/
