@@ -6,8 +6,8 @@ All character/part/UI/parallax assets are PNG with alpha (transparent background
 |---|---|---|---|---|
 | walker/torso.png | 160x200 | yes | center | gun mounts upper-front |
 | walker/hip.png | 120x90 | yes | top-center | connects torso to legs |
-| walker/leg_upper.png | 60x140 | yes | top-center | thigh, hinge at top |
-| walker/leg_lower.png | 50x140 | yes | top-center | shin, hinge at top |
+| walker/leg_upper.png | 60x100 | yes | top-center | thigh, hinge at top |
+| walker/leg_lower.png | 50x95 | yes | top-center | shin, hinge at top |
 | walker/foot.png | 90x50 | yes | top-center | contact surface |
 | walker/gun.png | 220x70 | yes | left-center | long barrel, mount at rear/left |
 | enemies/runner.png | 120x120 | yes | center | charges along ground |

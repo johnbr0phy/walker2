@@ -14,8 +14,8 @@ ROOT = "/Users/johnbrophy/walker2/assets"
 MANIFEST = [
     ("walker/torso.png",        (160, 200), True,  "center",        (90, 105, 90)),
     ("walker/hip.png",          (120, 90),  True,  "top-center",    (80, 90, 80)),
-    ("walker/leg_upper.png",    (60, 140),  True,  "top-center",    (100, 100, 110)),
-    ("walker/leg_lower.png",    (50, 140),  True,  "top-center",    (110, 110, 120)),
+    ("walker/leg_upper.png",    (60, 100),  True,  "top-center",    (100, 100, 110)),
+    ("walker/leg_lower.png",    (50, 95),   True,  "top-center",    (110, 110, 120)),
     ("walker/foot.png",         (90, 50),   True,  "top-center",    (70, 70, 75)),
     ("walker/gun.png",          (220, 70),  True,  "left-center",   (60, 65, 70)),
     ("enemies/runner.png",      (120, 120), True,  "center",        (150, 80, 60)),
