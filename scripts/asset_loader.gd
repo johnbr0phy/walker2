@@ -7,8 +7,8 @@ extends RefCounted
 const MANIFEST_SIZES := {
 	"res://assets/walker/torso.png": Vector2i(160, 200),
 	"res://assets/walker/hip.png": Vector2i(120, 90),
-	"res://assets/walker/leg_upper.png": Vector2i(60, 140),
-	"res://assets/walker/leg_lower.png": Vector2i(50, 140),
+	"res://assets/walker/leg_upper.png": Vector2i(60, 100),
+	"res://assets/walker/leg_lower.png": Vector2i(50, 95),
 	"res://assets/walker/foot.png": Vector2i(90, 50),
 	"res://assets/walker/gun.png": Vector2i(220, 70),
 	"res://assets/enemies/runner.png": Vector2i(120, 120),

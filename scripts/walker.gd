@@ -23,10 +23,10 @@ extends Node2D
 @export var torso_kd := 1.1e6
 @export var hip_kp := 6.0e6                # world-anchored upright spring on hip block
 @export var hip_kd := 6.0e5
-@export var lean_into_motion := 0.07       # rad of lean per full walk speed
+@export var lean_into_motion := 0.035      # rad of lean per full walk speed
 @export var com_lean_gain := 0.0004        # rad of corrective lean per px of COM error
-@export var max_lean := 0.16
-@export var ride_height := 330.0           # px, hip center above foot center in stance
+@export var max_lean := 0.14
+@export var ride_height := 245.0           # px, hip center above foot center in stance
 @export var suspension_kp := 1300.0        # contact-gated vertical spring holding stance
 @export var suspension_kd := 500.0
 @export var suspension_force_max := 7.0e4  # keep near walker weight or it hops
@@ -42,9 +42,9 @@ extends Node2D
 
 @export_group("Gait & drive")
 @export var walk_speed := 170.0            # px/s target ground speed
-@export var stride_hz := 1.15              # gait cycles per second at full speed
-@export var hip_swing_amp := 0.42          # rad of hip swing while walking
-@export var knee_lift := 0.7               # rad of knee bend at mid-swing (foot clearance)
+@export var stride_hz := 1.35              # gait cycles per second at full speed
+@export var hip_swing_amp := 0.68          # rad of hip swing while walking
+@export var knee_lift := 0.95              # rad of knee bend at mid-swing (foot clearance)
 @export var stance_splay := 0.06           # rad of idle stance splay
 @export var drive_accel_max := 700.0       # px/s^2 cap on the ground drive force
 @export var drive_gain := 9.0              # (px/s error) -> accel
@@ -58,10 +58,10 @@ extends Node2D
 # is the torso/hip joint (hip top-center). +y is down.
 const HIP_ATTACH_Y := 75.0     # leg pivot height inside the hip block
 const LEG_X := 25.0            # lateral offset of each leg from center
-const UPPER_LEN := 140.0
-const LOWER_LEN := 140.0
+const UPPER_LEN := 100.0
+const LOWER_LEN := 95.0
 const FOOT_H := 50.0
-const FOOT_BOTTOM_Y := HIP_ATTACH_Y + UPPER_LEN + LOWER_LEN + FOOT_H  # 405
+const FOOT_BOTTOM_Y := HIP_ATTACH_Y + UPPER_LEN + LOWER_LEN + FOOT_H  # 320
 
 const LAYER_TERRAIN := 1
 const LAYER_WALKER := 2
@@ -146,10 +146,10 @@ func _build_bodies() -> void:
 		var side := -1.0 if i == 0 else 1.0
 		var x := side * LEG_X
 		var upper := _make_part("UpperLeg%d" % i, "res://assets/walker/leg_upper.png",
-				Vector2(x, HIP_ATTACH_Y + UPPER_LEN * 0.5), Vector2(42, 130),
+				Vector2(x, HIP_ATTACH_Y + UPPER_LEN * 0.5), Vector2(42, 90),
 				mass_leg_upper, body_friction)
 		var lower := _make_part("LowerLeg%d" % i, "res://assets/walker/leg_lower.png",
-				Vector2(x, HIP_ATTACH_Y + UPPER_LEN + LOWER_LEN * 0.5), Vector2(36, 130),
+				Vector2(x, HIP_ATTACH_Y + UPPER_LEN + LOWER_LEN * 0.5), Vector2(36, 85),
 				mass_leg_lower, body_friction)
 		var foot := _make_part("Foot%d" % i, "res://assets/walker/foot.png",
 				Vector2(x, HIP_ATTACH_Y + UPPER_LEN + LOWER_LEN + FOOT_H * 0.5),
