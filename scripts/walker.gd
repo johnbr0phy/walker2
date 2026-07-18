@@ -110,10 +110,29 @@ func _make_part(part_name: String, tex_path: String, center: Vector2, size: Vect
 
 	var sprite := Sprite2D.new()
 	sprite.texture = Assets.tex(tex_path)
+	_fit_sprite_to_canvas(sprite)
 	body.add_child(sprite)
 
 	add_child(body)
 	return body
+
+
+static func _fit_sprite_to_canvas(sprite: Sprite2D) -> void:
+	# The manifest contract is that art spans its canvas up to the pivot edges
+	# (joint spacing == canvas size). Delivered art often has transparent
+	# padding, which draws as gaps at the joints — stretch the opaque content
+	# to fill the canvas so the parts visually connect. No-op for full-bleed art.
+	var img := sprite.texture.get_image()
+	if img == null or img.is_empty():
+		return
+	if img.is_compressed():
+		img.decompress()
+	var used := img.get_used_rect()
+	var full := img.get_size()
+	if used.size.x <= 0 or used.size.y <= 0 or used.size == full:
+		return
+	sprite.scale = Vector2(float(full.x) / used.size.x, float(full.y) / used.size.y)
+	sprite.offset = Vector2(full) / 2.0 - (Vector2(used.position) + Vector2(used.size) / 2.0)
 
 
 func _build_bodies() -> void:
