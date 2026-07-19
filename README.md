@@ -4,7 +4,7 @@
 
 A slow, physically-simulated bipedal mech with a fast, freely-aimed gun, fighting an omnidirectional swarm on terrain that deforms and collapses under fire. Godot 4, GDScript, 2D. Control scheme inspired by Walker (DMA Design, 1993): the body is a lumbering liability, the aim is fast and free, and staying upright is half the fight.
 
-**Status: M1 (walk and balance) complete.** The mech is a chain of seven rigid bodies (torso, hip, 2× upper leg, 2× lower leg, 2× foot) joined by pin joints with angular limits, kept upright and walking by a PD controller. No animation clips — every motion is physics.
+**Status: M2 (aim and fire) complete.** The mech is a chain of seven rigid bodies (torso, hip, 2× upper leg, 2× lower leg, 2× foot) joined by pin joints with angular limits, kept upright and walking by a PD controller. No animation clips — every motion is physics. The upper assembly (torso + gun) pitches instantly at the waist toward the mouse — including rear aim, which flips it over the legs, Walker-style — while recoil hammers the physics body underneath. Firing at the ground boosts you upward.
 
 ## Run
 
@@ -14,11 +14,13 @@ Requires Godot 4.x (built and tested on 4.7.1). Open the project folder in Godot
 godot --path .          # or: /Applications/Godot.app/Contents/MacOS/Godot --path .
 ```
 
-### Controls (M1)
+### Controls
 
-| Key | Action |
+| Input | Action |
 |---|---|
 | A / D (or ←/→) | walk left / right |
+| Mouse | aim (free, including behind you) |
+| Left mouse button | rapid fire — recoil is real; firing at the ground boosts you up |
 | Q / E | debug push (test balance recovery) |
 | R | reset |
 
@@ -28,7 +30,7 @@ godot --path .          # or: /Applications/Godot.app/Contents/MacOS/Godot --pat
 godot --headless -- selftest
 ```
 
-Runs the M1 gate automatically: stand 2 s, walk right 4 s, take a debug push and recover, walk left 3 s. Prints PASS/FAIL per check and exits nonzero on failure.
+Runs the M1+M2 gate automatically: stand, walk right, take a debug push and recover, walk left, rapid-fire under recoil, downfire boost, land and settle. Prints PASS/FAIL per check (13 checks) and exits nonzero on failure.
 
 ## How the balance works (and its tradeoffs)
 
@@ -41,6 +43,10 @@ Per the design pillars, fun beats floaty realism. The controller layers, from mo
 
 Physics runs at 240 Hz (`project.godot`) — motorized ragdolls explode at 60 Hz with gains this stiff.
 
+## How aim works (M2)
+
+Aim is instant and non-physical, per the design pillars ("dumb slow body, smart fast aim"): the visual upper assembly — torso art + gun — pivots at the waist toward the cursor, clamped to −70°…+55°, and flips horizontally for rear aim. The physics torso underneath never rotates to aim; it just keeps balancing. What IS physical is the consequence: every shot applies a real impulse opposite the barrel (`recoil_impulse`), so sustained fire shoves you around, and firing downward multiplies the recoil (`downfire_boost`) into a jump assist strong enough to climb. Projectiles are ray-stepped tracers; muzzle flash and impact FX are pure code (no art files), per the FX rule.
+
 ## Tunables
 
 All exported at the top of `scripts/walker.gd` (masses, PD gains, gait, drive, suspension, push strength) and `scripts/main.gd` (ground, camera). Suggested tuning starting points for M1 review:
@@ -49,6 +55,9 @@ All exported at the top of `scripts/walker.gd` (masses, PD gains, gait, drive, s
 - `gravity_scale_all`, `torso_kp/kd` — weight vs. stiffness of the body.
 - `suspension_*` — stance firmness. Cap it near weight (`5.5e4`–`7e4`); higher makes it hop.
 - `knee_lift` — swing-foot ground clearance. Too low and the feet scuff and the walk stalls.
+- `fire_rate`, `recoil_impulse` — how hard sustained fire pushes you around.
+- `downfire_boost` — jump-assist strength. Note the 55° down-pitch clamp: only ~0.82 of the boosted impulse is vertical, so it must comfortably beat weight (≈3.8e4 impulse/s) to lift.
+- `aim_up_max_deg` / `aim_down_max_deg` — the waist pitch arc.
 
 ## Assets
 
@@ -62,7 +71,7 @@ Notes for the art pipeline from first integration:
 ## Milestones
 
 - [x] **M1 Walk and balance** — stands, walks A/D with weight and momentum, recovers from debug pushes. Verified by headless selftest.
-- [ ] M2 Aim and fire — cursor turret, rapid-fire projectiles, recoil, downward-fire boost.
+- [x] **M2 Aim and fire** — waist-pitch cursor aim (incl. rear), rapid-fire tracers, physical recoil, downward-fire boost. Verified by headless selftest.
 - [ ] M3 Deformable ground — material grid + marching squares, craters, debris.
 - [ ] M4 First enemy loop — runner, paratrooper, burrower, stomp melee.
 - [ ] M5 The hook — one encounter only physics + deformation makes possible.

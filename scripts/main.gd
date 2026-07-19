@@ -7,11 +7,13 @@ extends Node2D
 @export var ground_y := 600.0          # world y of the ground surface
 @export var ground_half_width := 20000.0
 @export var camera_zoom := 0.85
+@export var camera_cursor_lead := 0.10 # how far the camera drifts toward the cursor
 # ------------------------------------------------------------ end tunables ---
 
 var walker: Walker
 var camera: Camera2D
 var hud_label: Label
+var crosshair: Sprite2D
 var selftest_mode := false   # true when a script (selftest/screenshot) drives input
 var _shot_dir := ""
 var _shot_t := 0.0
@@ -116,15 +118,25 @@ func _build_hud() -> void:
 	hud_label.position = Vector2(24, 20)
 	hud_label.add_theme_font_size_override("font_size", 22)
 	canvas.add_child(hud_label)
+	crosshair = Sprite2D.new()
+	crosshair.texture = Assets.tex("res://assets/ui/crosshair.png")
+	canvas.add_child(crosshair)
 	add_child(canvas)
+	if not selftest_mode and DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 
 func _process(delta: float) -> void:
 	if not selftest_mode:
 		walker.input_dir = Input.get_axis("move_left", "move_right")
+		walker.aim_point = get_global_mouse_position()
+		walker.firing = Input.is_action_pressed("fire")
+		crosshair.position = get_viewport().get_mouse_position()
 	if _shot_dir != "":
 		_shot_t += delta
 		walker.input_dir = 1.0 if _shot_t > 2.0 else 0.0
+		walker.aim_point = walker.hip_position() + Vector2(650, -260)
+		walker.firing = _shot_t > 2.5
 		if (_shots_taken == 0 and _shot_t > 1.5) or (_shots_taken == 1 and _shot_t > 4.0):
 			_shots_taken += 1
 			var img := get_viewport().get_texture().get_image()
@@ -132,8 +144,9 @@ func _process(delta: float) -> void:
 			print("saved shot%d" % _shots_taken)
 			if _shots_taken == 2:
 				get_tree().quit()
-	camera.position = walker.hip_position() + Vector2(0, -120)
-	hud_label.text = "A/D move  ·  Q/E debug push  ·  R reset      torso %+5.1f°  feet down %d" % [
+	camera.position = walker.hip_position() + Vector2(0, -120) \
+			+ (walker.aim_point - walker.hip_position()) * camera_cursor_lead
+	hud_label.text = "A/D move  ·  mouse aim  ·  LMB fire  ·  Q/E push  ·  R reset      torso %+5.1f°  feet down %d" % [
 		rad_to_deg(walker.torso_angle()), walker.grounded_foot_count()]
 
 

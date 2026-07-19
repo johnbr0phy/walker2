@@ -50,6 +50,19 @@ extends Node2D
 @export var drive_gain := 9.0              # (px/s error) -> accel
 @export var drive_coyote_time := 0.2       # s of lost foot contact before drive cuts out
 
+@export_group("Aim & fire (M2)")
+@export var aim_up_max_deg := 70.0         # pitch clamp above horizontal
+@export var aim_down_max_deg := 55.0       # pitch clamp below horizontal
+@export var fire_rate := 9.0               # rounds per second while held
+@export var recoil_impulse := 1200.0       # per shot, opposite the barrel
+@export var recoil_torso_split := 0.6      # recoil share applied at the hardpoint (rest to hip)
+@export var downfire_threshold := 0.55     # barrel dir.y beyond which the boost kicks in
+@export var downfire_boost := 5.0          # recoil multiplier when firing downward (jump assist);
+                                           # must beat weight through the 55-deg pitch clamp to lift
+@export var spread_deg := 1.2              # random per-shot spread
+@export var projectile_speed := 2600.0     # px/s
+@export var projectile_life := 1.2         # s
+
 @export_group("Debug")
 @export var push_impulse := 9000.0         # debug push strength (Q/E keys)
 # ------------------------------------------------------------ end tunables ---
@@ -66,26 +79,45 @@ const FOOT_BOTTOM_Y := HIP_ATTACH_Y + UPPER_LEN + LOWER_LEN + FOOT_H  # 405
 const LAYER_TERRAIN := 1
 const LAYER_WALKER := 2
 
+# Preloaded (not class_name lookups) so headless runs don't depend on the
+# editor's global class cache being fresh.
+const ProjectileScript := preload("res://scripts/projectile.gd")
+
+# Aim assembly geometry (waist-pitch model — see ASSETS.md / grok-art-parts.md).
+const WAIST_LOCAL := Vector2(0, 100)       # waist joint in torso-body coords
+const HARDPOINT := Vector2(0, -150)        # gun mount in assembly coords (origin = waist)
+const GUN_LEN := 220.0
+
 var input_dir := 0.0           # -1..1, set by main (or the selftest driver)
+var aim_point := Vector2.ZERO  # world-space cursor, set by main (or selftest)
+var firing := false            # true while the trigger is held
+var shots_fired := 0
 var _since_grounded := 0.0
+var _facing := 1.0             # +1 guns right, -1 guns rear (assembly flipped)
+var _fire_cooldown := 0.0
+var _flash_t := 0.0
 
 var torso: RigidBody2D
 var hip: RigidBody2D
 var legs := []                 # [{upper, lower, foot, phase_offset}, ...]
+var aim_assembly: Node2D
+var _muzzle_flash: Polygon2D
 var _phase := 0.0
 var _spawn_transform: Transform2D
 
 
 func _ready() -> void:
 	_spawn_transform = transform
+	aim_point = global_position + Vector2(600, -150)
 	_build_bodies()
 	_build_joints()
+	_build_aim_assembly()
 
 
 # ------------------------------------------------------------ construction ---
 
 func _make_part(part_name: String, tex_path: String, center: Vector2, size: Vector2,
-		mass: float, friction: float) -> RigidBody2D:
+		mass: float, friction: float, with_sprite := true) -> RigidBody2D:
 	var body := RigidBody2D.new()
 	body.name = part_name
 	body.position = center
@@ -108,10 +140,11 @@ func _make_part(part_name: String, tex_path: String, center: Vector2, size: Vect
 	shape.shape = rect
 	body.add_child(shape)
 
-	var sprite := Sprite2D.new()
-	sprite.texture = Assets.tex(tex_path)
-	_fit_sprite_to_canvas(sprite)
-	body.add_child(sprite)
+	if with_sprite:
+		var sprite := Sprite2D.new()
+		sprite.texture = Assets.tex(tex_path)
+		_fit_sprite_to_canvas(sprite)
+		body.add_child(sprite)
 
 	add_child(body)
 	return body
@@ -138,8 +171,10 @@ static func _fit_sprite_to_canvas(sprite: Sprite2D) -> void:
 func _build_bodies() -> void:
 	# Sprites are centered on each body; bodies are placed so the manifest pivot
 	# (top-center of hips/legs/feet) lands exactly on its joint anchor.
+	# The torso's visuals live on the aim assembly (built after the joints), so
+	# the upper body can pitch toward the cursor while physics stays upright.
 	torso = _make_part("Torso", "res://assets/walker/torso.png",
-			Vector2(0, -100), Vector2(140, 180), mass_torso, body_friction)
+			Vector2(0, -100), Vector2(140, 180), mass_torso, body_friction, false)
 	hip = _make_part("Hip", "res://assets/walker/hip.png",
 			Vector2(0, 45), Vector2(100, 78), mass_hip, body_friction)
 	for i in 2:
@@ -183,6 +218,40 @@ func _build_joints() -> void:
 		_pin(hip, leg["upper"], Vector2(x, HIP_ATTACH_Y), 55.0)
 		_pin(leg["upper"], leg["lower"], Vector2(x, HIP_ATTACH_Y + UPPER_LEN), 75.0)
 		_pin(leg["lower"], leg["foot"], Vector2(x, HIP_ATTACH_Y + UPPER_LEN + LOWER_LEN), 30.0)
+
+
+func _build_aim_assembly() -> void:
+	# The whole upper assembly (torso art + gun) pivots at the waist toward the
+	# cursor — instant and non-physical per the design pillars, while the physics
+	# torso underneath keeps balancing and takes the recoil. Rear aim flips the
+	# assembly so the guns point backward over the legs, Amiga-Walker style.
+	aim_assembly = Node2D.new()
+	aim_assembly.name = "AimAssembly"
+	aim_assembly.position = WAIST_LOCAL
+	aim_assembly.z_index = 1   # gun/torso read above the legs when pitched down
+	torso.add_child(aim_assembly)
+
+	var torso_sprite := Sprite2D.new()
+	torso_sprite.texture = Assets.tex("res://assets/walker/torso.png")
+	_fit_sprite_to_canvas(torso_sprite)
+	torso_sprite.position = Vector2(0, -100)   # canvas center relative to waist
+	aim_assembly.add_child(torso_sprite)
+
+	var gun_sprite := Sprite2D.new()
+	gun_sprite.texture = Assets.tex("res://assets/walker/gun.png")
+	_fit_sprite_to_canvas(gun_sprite)
+	gun_sprite.position = HARDPOINT + Vector2(GUN_LEN * 0.5, 0)  # left-center pivot on the mount
+	aim_assembly.add_child(gun_sprite)
+
+	_muzzle_flash = Polygon2D.new()
+	_muzzle_flash.polygon = PackedVector2Array([
+		Vector2(0, -7), Vector2(16, -2), Vector2(34, 0), Vector2(16, 2),
+		Vector2(0, 7), Vector2(5, 0),
+	])
+	_muzzle_flash.color = Color(1.0, 0.93, 0.6)
+	_muzzle_flash.position = HARDPOINT + Vector2(GUN_LEN - 6.0, 0)
+	_muzzle_flash.visible = false
+	aim_assembly.add_child(_muzzle_flash)
 
 
 # -------------------------------------------------------------- controller ---
@@ -230,6 +299,17 @@ func _physics_process(delta: float) -> void:
 		hip.apply_central_force(Vector2(force * 0.55, 0))
 		torso.apply_central_force(Vector2(force * 0.45, 0))
 
+	# --- aim & fire ---
+	_update_aim()
+	_fire_cooldown -= delta
+	if firing and _fire_cooldown <= 0.0:
+		_fire_cooldown = 1.0 / fire_rate
+		_fire_one_shot()
+	if _flash_t > 0.0:
+		_flash_t -= delta
+		if _flash_t <= 0.0:
+			_muzzle_flash.visible = false
+
 	# --- ride-height suspension: keeps stance legs from buckling under load.
 	# Contact-gated so it never hovers; a tradeoff noted in the README. ---
 	if grounded:
@@ -245,6 +325,49 @@ func _physics_process(delta: float) -> void:
 		lift = clampf(lift, -suspension_force_max, suspension_force_max)
 		hip.apply_central_force(Vector2(0, lift * 0.4))
 		torso.apply_central_force(Vector2(0, lift * 0.6))
+
+
+func _update_aim() -> void:
+	var waist := torso.to_global(WAIST_LOCAL)
+	var to_aim := aim_point - waist
+	if to_aim.length_squared() < 1.0:
+		return
+	if absf(to_aim.x) > 8.0:   # hysteresis so the assembly doesn't flicker overhead
+		_facing = 1.0 if to_aim.x > 0.0 else -1.0
+	# Pitch measured as if facing right; the flip mirrors it for rear aim.
+	var pitch := clampf(atan2(to_aim.y, to_aim.x * _facing),
+			-deg_to_rad(aim_up_max_deg), deg_to_rad(aim_down_max_deg))
+	aim_assembly.scale = Vector2(_facing, 1.0)
+	# With scale.x = -1 the flipped barrel's world angle is PI - rotation, so
+	# facing folds into a sign; subtracting torso rotation keeps aim world-true.
+	aim_assembly.rotation = _facing * pitch - torso.rotation
+
+
+func barrel_direction() -> Vector2:
+	return aim_assembly.global_transform.x.normalized()
+
+
+func muzzle_position() -> Vector2:
+	return aim_assembly.to_global(HARDPOINT + Vector2(GUN_LEN - 6.0, 0))
+
+
+func _fire_one_shot() -> void:
+	shots_fired += 1
+	var dir := barrel_direction().rotated(deg_to_rad(randf_range(-spread_deg, spread_deg)))
+	ProjectileScript.spawn(get_parent(), muzzle_position(), dir * projectile_speed, projectile_life)
+
+	# Recoil is real physics: shove the body opposite the barrel. Firing at the
+	# ground multiplies it into a jump assist (the M2 "downward-fire boost").
+	var impulse := -dir * recoil_impulse
+	if dir.y > downfire_threshold:
+		impulse *= downfire_boost
+	var hard_world := aim_assembly.to_global(HARDPOINT)
+	torso.apply_impulse(impulse * recoil_torso_split, hard_world - torso.global_position)
+	hip.apply_central_impulse(impulse * (1.0 - recoil_torso_split))
+
+	_muzzle_flash.visible = true
+	_muzzle_flash.scale = Vector2(randf_range(0.8, 1.3), randf_range(0.8, 1.3))
+	_flash_t = 0.055
 
 
 func _world_pd(body: RigidBody2D, target_rot: float, kp: float, kd: float) -> void:

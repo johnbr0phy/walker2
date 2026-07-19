@@ -1,5 +1,6 @@
 extends Node
-## Headless M1 gate: stand, walk right, take a debug push, recover.
+## Headless M1+M2 gate: stand, walk right, take a debug push, recover, walk
+## left, fire level under recoil, downfire boost, land and settle.
 ## Run: godot --headless -- selftest
 ## Prints metrics and exits 0 (pass) / 1 (fail).
 
@@ -18,10 +19,19 @@ const WALK_END := 6.0
 const PUSH_AT := 6.5
 const RECOVER_END := 9.5
 const WALK_LEFT_END := 12.5
+const FIRE_LEVEL_END := 15.0
+const FIRE_DOWN_END := 18.0
+const SETTLE_END := 19.5
+
+var _fire_start_shots := -1
+var _down_base_y := 0.0
+var _down_min_y := 0.0
+var _down_started := false
 
 
 func _ready() -> void:
 	Engine.time_scale = 5.0
+	seed(12345)   # deterministic projectile spread
 	_spawn_hip_y = walker.hip_position().y
 	print("[selftest] start; hip=", walker.hip_position())
 
@@ -66,12 +76,35 @@ func _physics_process(delta: float) -> void:
 					"hip dy %.1f" % (walker.hip_position().y - _spawn_hip_y))
 			_left_start_x = walker.hip_position().x
 		walker.input_dir = -1.0
-	else:
+	elif _t < FIRE_LEVEL_END:
+		if _fire_start_shots < 0:
+			var dist := _left_start_x - walker.hip_position().x
+			_check("walk left: moved > 220 px in 3 s", dist > 220.0,
+					"dist %.0f px (%.0f px/s)" % [dist, dist / 3.0])
+			_check("walk left: stayed upright", tilt < 0.35, "tilt %.3f" % tilt)
+			_fire_start_shots = walker.shots_fired
 		walker.input_dir = 0.0
-		var dist := _left_start_x - walker.hip_position().x
-		_check("walk left: moved > 220 px in 3 s", dist > 220.0,
-				"dist %.0f px (%.0f px/s)" % [dist, dist / 3.0])
-		_check("walk left: stayed upright", tilt < 0.35, "tilt %.3f" % tilt)
+		walker.aim_point = walker.hip_position() + Vector2(800, -120)
+		walker.firing = true
+	elif _t < FIRE_DOWN_END:
+		if not _down_started:
+			_down_started = true
+			var shots := walker.shots_fired - _fire_start_shots
+			_check("fire: rapid fire ran (> 15 shots in 2.5 s)", shots > 15, "%d shots" % shots)
+			_check("fire: stayed upright under recoil", tilt < 0.35, "tilt %.3f" % tilt)
+			_down_base_y = walker.hip_position().y
+			_down_min_y = _down_base_y
+		walker.input_dir = 0.0
+		walker.aim_point = walker.hip_position() + Vector2(30, 500)
+		walker.firing = true
+		_down_min_y = minf(_down_min_y, walker.hip_position().y)
+	elif _t < SETTLE_END:
+		walker.firing = false
+		walker.input_dir = 0.0
+	else:
+		var boost := _down_base_y - _down_min_y
+		_check("downfire: boost lifted hip > 40 px", boost > 40.0, "lift %.0f px" % boost)
+		_check("downfire: landed upright", tilt < 0.35, "tilt %.3f" % tilt)
 		_finish()
 
 
