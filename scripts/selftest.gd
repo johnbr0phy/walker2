@@ -4,7 +4,7 @@ extends Node
 ## Run: godot --headless -- selftest
 ## Prints metrics and exits 0 (pass) / 1 (fail).
 
-var walker: Walker
+var walker: Node2D   # player.gd (duck-typed: same control/query API as walker.gd)
 
 var _t := 0.0
 var _pushed := false
@@ -78,7 +78,7 @@ func _physics_process(delta: float) -> void:
 		walker.input_dir = -1.0
 	elif _t < FIRE_LEVEL_END:
 		if _fire_start_shots < 0:
-			var dist := _left_start_x - walker.hip_position().x
+			var dist: float = _left_start_x - walker.hip_position().x
 			_check("walk left: moved > 220 px in 3 s", dist > 220.0,
 					"dist %.0f px (%.0f px/s)" % [dist, dist / 3.0])
 			_check("walk left: stayed upright", tilt < 0.35, "tilt %.3f" % tilt)
@@ -89,7 +89,7 @@ func _physics_process(delta: float) -> void:
 	elif _t < FIRE_DOWN_END:
 		if not _down_started:
 			_down_started = true
-			var shots := walker.shots_fired - _fire_start_shots
+			var shots: int = walker.shots_fired - _fire_start_shots
 			_check("fire: rapid fire ran (> 15 shots in 2.5 s)", shots > 15, "%d shots" % shots)
 			_check("fire: stayed upright under recoil", tilt < 0.35, "tilt %.3f" % tilt)
 			_down_base_y = walker.hip_position().y
@@ -102,7 +102,7 @@ func _physics_process(delta: float) -> void:
 		walker.firing = false
 		walker.input_dir = 0.0
 	else:
-		var boost := _down_base_y - _down_min_y
+		var boost: float = _down_base_y - _down_min_y
 		_check("downfire: boost lifted hip > 40 px", boost > 40.0, "lift %.0f px" % boost)
 		_check("downfire: landed upright", tilt < 0.35, "tilt %.3f" % tilt)
 		_finish()

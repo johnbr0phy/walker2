@@ -4,7 +4,9 @@
 
 A slow, physically-simulated bipedal mech with a fast, freely-aimed gun, fighting an omnidirectional swarm on terrain that deforms and collapses under fire. Godot 4, GDScript, 2D. Control scheme inspired by Walker (DMA Design, 1993): the body is a lumbering liability, the aim is fast and free, and staying upright is half the fight.
 
-**Status: M2 (aim and fire) complete.** The mech is a chain of seven rigid bodies (torso, hip, 2× upper leg, 2× lower leg, 2× foot) joined by pin joints with angular limits, kept upright and walking by a PD controller. No animation clips — every motion is physics. The upper assembly (torso + gun) pitches instantly at the waist toward the mouse — including rear aim, which flips it over the legs, Walker-style — while recoil hammers the physics body underneath. Firing at the ground boosts you upward.
+**Status: M2 (aim and fire) complete — rebuilt on the layered-frames player.** The mech's look comes straight from the approved walk footage: the walk harvest plays as a legs animation (masked below the waist, torso-stabilized), and a torso+cannons plate cut from the same frames pivots instantly at the waist toward the mouse — including rear aim, Walker-style. One rigid body carries weight, momentum, recoil, and the downward-fire jump boost. Walking and aiming are separate layers, so you can do both at once with no ghosting. The M1 motorized-ragdoll walker (`scripts/walker.gd`) is retired from the main scene but kept in the repo.
+
+The frame pipeline is `tools/build_player_frames.py`: it stabilizes the source frames on the torso (the source video pans), splits them at the waist with a feathered seam, de-fringes the chroma key, and exports a per-frame bob table so the torso overlay rides the legs exactly.
 
 ## Run
 
@@ -32,7 +34,7 @@ godot --headless -- selftest
 
 Runs the M1+M2 gate automatically: stand, walk right, take a debug push and recover, walk left, rapid-fire under recoil, downfire boost, land and settle. Prints PASS/FAIL per check (13 checks) and exits nonzero on failure.
 
-## How the balance works (and its tradeoffs)
+## Legacy: how the M1 physics-walker balance works
 
 Per the design pillars, fun beats floaty realism. The controller layers, from most to least physical:
 

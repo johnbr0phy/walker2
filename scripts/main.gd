@@ -10,7 +10,7 @@ extends Node2D
 @export var camera_cursor_lead := 0.10 # how far the camera drifts toward the cursor
 # ------------------------------------------------------------ end tunables ---
 
-var walker: Walker
+var walker: Node2D   # the player (player.gd); legacy walker.gd kept in repo
 var camera: Camera2D
 var hud_label: Label
 var crosshair: Sprite2D
@@ -98,9 +98,9 @@ func _build_ground() -> void:
 
 
 func _build_walker() -> void:
-	walker = preload("res://scenes/walker.tscn").instantiate()
-	# Local origin is the torso/hip joint; feet bottoms sit at +FOOT_BOTTOM_Y.
-	walker.position = Vector2(0, ground_y - Walker.FOOT_BOTTOM_Y - 4.0)
+	walker = preload("res://scenes/player.tscn").instantiate()
+	# Local origin is the waist; feet soles sit at +FOOT_BOTTOM_Y.
+	walker.position = Vector2(0, ground_y - Player.FOOT_BOTTOM_Y - 4.0)
 	add_child(walker)
 
 
