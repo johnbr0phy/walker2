@@ -4,7 +4,7 @@
 
 A slow, physically-simulated bipedal mech with a fast, freely-aimed gun, fighting an omnidirectional swarm on terrain that deforms and collapses under fire. Godot 4, GDScript, 2D. Control scheme inspired by Walker (DMA Design, 1993): the body is a lumbering liability, the aim is fast and free, and staying upright is half the fight.
 
-**Status: M2 (aim and fire) complete — rebuilt on the layered-frames player.** The mech's look comes straight from the approved walk footage: the walk harvest plays as a legs animation (masked below the waist, torso-stabilized), and a torso+cannons plate cut from the same frames pivots instantly at the waist toward the mouse — including rear aim, Walker-style. One rigid body carries weight, momentum, recoil, and the downward-fire jump boost. Walking and aiming are separate layers, so you can do both at once with no ghosting. The M1 motorized-ragdoll walker (`scripts/walker.gd`) is retired from the main scene but kept in the repo.
+**Status: M4 (first enemy loop) complete.** The mech's look comes straight from the approved walk footage: the walk harvest plays as a legs animation (masked below the waist, torso-stabilized), and a torso+cannons plate cut from the same frames pivots instantly at the waist toward the mouse — including rear aim, Walker-style. One rigid body carries weight, momentum, recoil, and the downward-fire jump boost. Walking and aiming are separate layers, so you can do both at once with no ghosting. The M1 motorized-ragdoll walker (`scripts/walker.gd`) is retired from the main scene but kept in the repo.
 
 The frame pipeline is `tools/build_player_frames.py`: it stabilizes the source frames on the torso (the source video pans), splits them at the waist with a feathered seam, de-fringes the chroma key, and exports a per-frame bob table so the torso overlay rides the legs exactly.
 
@@ -23,6 +23,7 @@ godot --path .          # or: /Applications/Godot.app/Contents/MacOS/Godot --pat
 | A / D (or ←/→) | walk left / right |
 | Mouse | aim (free, including behind you) |
 | Left mouse button | rapid fire — recoil is real; firing at the ground boosts you up |
+| (land hard) | stomp: boost up and drop onto enemies — cracks the ground, kills the swarm nearby |
 | Q / E | debug push (test balance recovery) |
 | R | reset |
 
@@ -32,7 +33,19 @@ godot --path .          # or: /Applications/Godot.app/Contents/MacOS/Godot --pat
 godot --headless -- selftest
 ```
 
-Runs the M1+M2 gate automatically: stand, walk right, take a debug push and recover, walk left, rapid-fire under recoil, downfire boost, land and settle. Prints PASS/FAIL per check (13 checks) and exits nonzero on failure.
+Runs the M1–M4 gate automatically: stand, walk, push recovery, rapid fire under recoil, downfire boost, landing stomp, terrain carving, and killing a runner. Prints PASS/FAIL per check (16 checks) and exits nonzero on failure.
+
+## Terrain (M3) and enemies (M4)
+
+The arena (±2048 px around spawn) is a **material grid**: 8 px cells of dirt over rock (`scripts/terrain.gd`). Every tracer, runner detonation, burrower bite, and stomp carves it — dirt clears easily, rock resists (`rock_hardness`). Collision is an invisible TileMapLayer that erases cells as they're carved; visuals are chunked images blitted from the tiling material textures; debris chunks are code-drawn rigid bodies. Beyond the arena, indestructible bedrock. `surface_y(x)` exposes the ground line to AI.
+
+Three enemies (`scripts/runner|paratrooper|burrower.gd`, spawner in `main.gd`, escalating intervals):
+
+- **Runner** — charges along the ground, hops crater rims, detonates on contact (crater + knockback). Two hits.
+- **Paratrooper** — drifts down under a chute (one shot), then walks in and chews with melee.
+- **Burrower** — tunnels toward you *eating the terrain under your feet*; unshootable underground, then erupts in a blast crater and surfaces as a runner.
+
+The stomp closes the loop with the boost: fire down to hover, drop onto the swarm — the landing kills everything nearby and cracks the ground. Player has HP; death is R-to-restart.
 
 ## Legacy: how the M1 physics-walker balance works
 
@@ -74,6 +87,6 @@ Notes for the art pipeline from first integration:
 
 - [x] **M1 Walk and balance** — stands, walks A/D with weight and momentum, recovers from debug pushes. Verified by headless selftest.
 - [x] **M2 Aim and fire** — waist-pitch cursor aim (incl. rear), rapid-fire tracers, physical recoil, downward-fire boost. Verified by headless selftest.
-- [ ] M3 Deformable ground — material grid + marching squares, craters, debris.
-- [ ] M4 First enemy loop — runner, paratrooper, burrower, stomp melee.
+- [x] **M3 Deformable ground** — material grid (dirt/rock), craters from every weapon, debris. Verified by headless selftest.
+- [x] **M4 First enemy loop** — runner, paratrooper, burrower, landing stomp, HP/kills/death. Verified by headless selftest.
 - [ ] M5 The hook — one encounter only physics + deformation makes possible.

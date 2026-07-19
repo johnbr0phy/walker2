@@ -36,6 +36,14 @@ extends RigidBody2D
 @export var projectile_speed := 2600.0
 @export var projectile_life := 1.2
 
+@export_group("Health & stomp (M4)")
+@export var max_hp := 100.0
+@export var invuln_time := 0.4             # s of immunity after a hit
+@export var stomp_min_air := 0.25          # s airborne before a landing can stomp
+@export var stomp_min_fall := 500.0        # px/s peak fall speed to trigger
+@export var stomp_range := 150.0
+@export var stomp_crater := 26.0
+
 @export_group("Debug")
 @export var push_impulse := 9000.0
 # ------------------------------------------------------------ end tunables ---
@@ -52,6 +60,12 @@ var input_dir := 0.0                 # -1..1, set by main (or the selftest drive
 var aim_point := Vector2.ZERO
 var firing := false
 var shots_fired := 0
+var hp := 100.0
+var dead := false
+var stomps := 0
+var _invuln := 0.0
+var _air_time := 0.0
+var _fall_peak := 0.0
 
 var _move_facing := 1.0              # legs facing (travel direction)
 var _aim_facing := 1.0               # rig-local torso facing (rear aim = -1)
@@ -71,6 +85,8 @@ var _muzzle_flash: Polygon2D
 
 
 func _ready() -> void:
+	add_to_group("player")
+	hp = max_hp
 	mass = body_mass
 	gravity_scale = body_gravity
 	lock_rotation = true
@@ -157,8 +173,19 @@ func _load_meta() -> Dictionary:
 # -------------------------------------------------------------- controller ---
 
 func _physics_process(delta: float) -> void:
-	var dir := clampf(input_dir, -1.0, 1.0)
+	var dir := clampf(input_dir, -1.0, 1.0) if not dead else 0.0
+	if dead:
+		firing = false
 	var grounded := get_contact_count() > 0
+	_invuln -= delta
+	if grounded:
+		if _air_time > stomp_min_air and _fall_peak > stomp_min_fall:
+			_stomp()
+		_air_time = 0.0
+		_fall_peak = 0.0
+	else:
+		_air_time += delta
+		_fall_peak = maxf(_fall_peak, linear_velocity.y)
 	_since_grounded = 0.0 if grounded else _since_grounded + delta
 	var driveable := _since_grounded < drive_coyote_time
 
@@ -263,6 +290,36 @@ func _fire_one_shot() -> void:
 
 
 # ------------------------------------------- selftest / HUD compatibility ---
+
+func take_damage(amount: float, knockback: Vector2) -> void:
+	if dead or _invuln > 0.0:
+		return
+	_invuln = invuln_time
+	hp -= amount
+	apply_central_impulse(knockback)
+	_rig.modulate = Color(3, 1.5, 1.5)
+	var tw := create_tween()
+	tw.tween_property(_rig, "modulate", Color.WHITE, 0.18)
+	if hp <= 0.0:
+		hp = 0.0
+		dead = true
+		firing = false
+		_rig.modulate = Color(0.45, 0.42, 0.4)
+
+
+func _stomp() -> void:
+	stomps += 1
+	var FXS := preload("res://scripts/fx.gd")
+	var feet := global_position + Vector2(0, FOOT_BOTTOM_Y - 10.0)
+	FXS.blast(get_parent(), feet, 56.0, Color(0.85, 0.8, 0.6))
+	var t := get_tree().get_first_node_in_group("terrain")
+	if t:
+		t.carve(feet, stomp_crater)
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e is Node2D and e.global_position.distance_to(feet) < stomp_range \
+				and e.has_method("take_hit"):
+			e.take_hit(3)
+
 
 func hip_position() -> Vector2:
 	return global_position

@@ -1,6 +1,6 @@
 extends Node
-## Headless M1+M2 gate: stand, walk right, take a debug push, recover, walk
-## left, fire level under recoil, downfire boost, land and settle.
+## Headless M1-M4 gate: stand, walk, push recovery, fire under recoil,
+## downfire boost, landing stomp, terrain carving, and killing a runner.
 ## Run: godot --headless -- selftest
 ## Prints metrics and exits 0 (pass) / 1 (fail).
 
@@ -22,11 +22,15 @@ const WALK_LEFT_END := 12.5
 const FIRE_LEVEL_END := 15.0
 const FIRE_DOWN_END := 18.0
 const SETTLE_END := 19.5
+const HUNT_END := 24.0
 
 var _fire_start_shots := -1
 var _down_base_y := 0.0
 var _down_min_y := 0.0
+var _down_x := 0.0
 var _down_started := false
+var _hunt_started := false
+var _runner: Node2D
 
 
 func _ready() -> void:
@@ -94,6 +98,7 @@ func _physics_process(delta: float) -> void:
 			_check("fire: stayed upright under recoil", tilt < 0.35, "tilt %.3f" % tilt)
 			_down_base_y = walker.hip_position().y
 			_down_min_y = _down_base_y
+			_down_x = walker.hip_position().x
 		walker.input_dir = 0.0
 		walker.aim_point = walker.hip_position() + Vector2(30, 500)
 		walker.firing = true
@@ -101,10 +106,34 @@ func _physics_process(delta: float) -> void:
 	elif _t < SETTLE_END:
 		walker.firing = false
 		walker.input_dir = 0.0
+	elif _t < HUNT_END:
+		if not _hunt_started:
+			_hunt_started = true
+			var boost: float = _down_base_y - _down_min_y
+			_check("downfire: boost lifted hip > 40 px", boost > 40.0, "lift %.0f px" % boost)
+			_check("downfire: landed upright", tilt < 0.35, "tilt %.3f" % tilt)
+			var terrain: Node = get_tree().get_first_node_in_group("terrain")
+			# Downward shots are pitch-clamped to ~50 deg, so craters land a few
+			# hundred px ahead of the mech: scan a band around it for the pit.
+			var drop := 0.0
+			for off in range(-600, 601, 16):
+				drop = maxf(drop, terrain.surface_y(_down_x + off) - 600.0)
+			_check("terrain: downfire carved the ground", drop > 8.0,
+					"deepest crater %.0f px" % drop)
+			_check("stomp: landing stomp triggered", walker.stomps >= 1,
+					"%d stomps" % walker.stomps)
+			_runner = preload("res://scripts/runner.gd").new()
+			_runner.position = walker.hip_position() + Vector2(650, -250)
+			walker.get_parent().add_child(_runner)
+		walker.input_dir = 0.0
+		if is_instance_valid(_runner):
+			walker.aim_point = _runner.global_position
+			walker.firing = true
+		else:
+			walker.firing = false
 	else:
-		var boost: float = _down_base_y - _down_min_y
-		_check("downfire: boost lifted hip > 40 px", boost > 40.0, "lift %.0f px" % boost)
-		_check("downfire: landed upright", tilt < 0.35, "tilt %.3f" % tilt)
+		var game: Node = get_tree().get_first_node_in_group("game")
+		_check("enemy: runner destroyed by fire", game.kills >= 1, "kills %d" % game.kills)
 		_finish()
 
 

@@ -1,10 +1,11 @@
 class_name Projectile
 extends Node2D
 ## Ray-stepped tracer round: no physics body, just a segment cast per tick
-## against terrain (layer 1). Visuals are drawn in code (design rule: no art
-## files for FX). M4 extends the hit mask to enemies.
+## against terrain (layer 1) and enemies (layer 8). Terrain hits carve craters
+## (M3). Visuals are drawn in code (design rule: no art files for FX).
 
-const HIT_MASK := 1
+const HIT_MASK := 1 | 8
+const CARVE_RADIUS := 26.0
 const FXScript := preload("res://scripts/fx.gd")
 
 var velocity := Vector2.ZERO
@@ -26,7 +27,15 @@ func _physics_process(delta: float) -> void:
 	var query := PhysicsRayQueryParameters2D.create(position, next, HIT_MASK)
 	var hit := get_world_2d().direct_space_state.intersect_ray(query)
 	if hit:
-		FXScript.impact(get_parent(), hit.position, hit.normal)
+		var collider: Object = hit.collider
+		if collider != null and collider.has_method("take_hit"):
+			collider.take_hit(1)
+			FXScript.impact(get_parent(), hit.position, hit.normal)
+		else:
+			var t := get_tree().get_first_node_in_group("terrain")
+			if t:
+				t.carve(hit.position, CARVE_RADIUS)
+			FXScript.impact(get_parent(), hit.position, hit.normal)
 		queue_free()
 		return
 	position = next
