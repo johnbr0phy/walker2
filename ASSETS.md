@@ -4,11 +4,11 @@ All character/part/UI/parallax assets are PNG with alpha (transparent background
 
 | File | Canvas px | Alpha | Pivot | Notes |
 |---|---|---|---|---|
-| walker/torso.png | 160x200 | yes | center | full upper assembly: hull + integrated cockpit + gun hardpoint; tips at waist for aim (M2); no separate head |
-| walker/hip.png | 120x90 | yes | top-center | connects torso to legs |
-| walker/leg_upper.png | 60x140 | yes | top-center | thigh, hinge at top |
-| walker/leg_lower.png | 50x140 | yes | top-center | shin, hinge at top |
-| walker/foot.png | 90x50 | yes | top-center | contact surface |
+| walker/torso.png | 240x200 | yes | center | full upper assembly: hull + integrated cockpit + gun hardpoint; tips at waist for aim (M2); no separate head |
+| walker/hip.png | 140x80 | yes | top-center | connects torso to legs |
+| walker/leg_upper.png | 90x75 | yes | top-center | thigh, hinge at top |
+| walker/leg_lower.png | 80x75 | yes | top-center | shin, hinge at top |
+| walker/foot.png | 130x55 | yes | top-center | tread/stomper pad; contact surface |
 | walker/gun.png | 220x70 | yes | left-center | barrels only; mounts to torso hardpoint, follows torso pitch; weapon tiers swap this file |
 | enemies/runner.png | 120x120 | yes | center | charges along ground |
 | enemies/paratrooper.png | 90x120 | yes | center | descends from above |

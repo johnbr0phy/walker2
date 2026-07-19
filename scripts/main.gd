@@ -6,7 +6,7 @@ extends Node2D
 # ---------------------------------------------------------------- tunables ---
 @export var ground_y := 600.0          # world y of the ground surface
 @export var ground_half_width := 20000.0
-@export var camera_zoom := 0.85
+@export var camera_zoom := 1.0
 @export var camera_cursor_lead := 0.10 # how far the camera drifts toward the cursor
 # ------------------------------------------------------------ end tunables ---
 

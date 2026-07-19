@@ -5,11 +5,11 @@ extends RefCounted
 ## Real art dropped onto the same path hot-swaps in with zero code changes.
 
 const MANIFEST_SIZES := {
-	"res://assets/walker/torso.png": Vector2i(160, 200),
-	"res://assets/walker/hip.png": Vector2i(120, 90),
-	"res://assets/walker/leg_upper.png": Vector2i(60, 140),
-	"res://assets/walker/leg_lower.png": Vector2i(50, 140),
-	"res://assets/walker/foot.png": Vector2i(90, 50),
+	"res://assets/walker/torso.png": Vector2i(240, 200),
+	"res://assets/walker/hip.png": Vector2i(140, 80),
+	"res://assets/walker/leg_upper.png": Vector2i(90, 75),
+	"res://assets/walker/leg_lower.png": Vector2i(80, 75),
+	"res://assets/walker/foot.png": Vector2i(130, 55),
 	"res://assets/walker/gun.png": Vector2i(220, 70),
 	"res://assets/enemies/runner.png": Vector2i(120, 120),
 	"res://assets/enemies/paratrooper.png": Vector2i(90, 120),

@@ -3,16 +3,16 @@ from PIL import Image
 import os, sys
 
 SPECS = {
-    "torso.png":     (160, 200, ["bottom"]),
-    "hip.png":       (120,  90, ["top"]),
-    "leg_upper.png": ( 60, 140, ["top", "bottom"]),
-    "leg_lower.png": ( 50, 140, ["top", "bottom"]),
-    "foot.png":      ( 90,  50, ["top", "bottom"]),
+    "torso.png":     (240, 200, ["bottom"]),
+    "hip.png":       (140,  80, ["top"]),
+    "leg_upper.png": ( 90,  75, ["top", "bottom"]),
+    "leg_lower.png": ( 80,  75, ["top", "bottom"]),
+    "foot.png":      (130,  55, ["top", "bottom"]),
     "gun.png":       (220,  70, ["left"]),
 }
-OFFSETS = [("leg_upper.png",-55,275),("leg_lower.png",-50,415),("foot.png",-70,555),
-           ("hip.png",-60,200),("torso.png",-80,0),
-           ("leg_upper.png",-5,275),("leg_lower.png",0,415),("foot.png",-20,555)]
+OFFSETS = [("leg_upper.png",-75,250),("leg_lower.png",-70,325),("foot.png",-95,400),
+           ("hip.png",-70,200),("torso.png",-120,0),
+           ("leg_upper.png",-15,250),("leg_lower.png",-10,325),("foot.png",-35,400)]
 SRC = "assets/walker"
 fails = []
 
@@ -38,12 +38,12 @@ for name, (w, h, edges) in SPECS.items():
     for e in edges:
         if not touches(im, e): fails.append(f"{name}: opaque art does not reach {e} joint edge")
 
-comp = Image.new("RGBA", (320, 640), (40, 40, 48, 255))
+comp = Image.new("RGBA", (340, 480), (40, 40, 48, 255))
 for name, x, y in OFFSETS:
     p = os.path.join(SRC, name)
     if os.path.exists(p):
         part = Image.open(p).convert("RGBA")
-        comp.alpha_composite(part, (x + 160, y))
+        comp.alpha_composite(part, (x + 170, y))
 os.makedirs("_gen/parts_qa", exist_ok=True)
 comp.save("_gen/parts_qa/composite.png")
 
