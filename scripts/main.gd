@@ -134,7 +134,7 @@ func _process(delta: float) -> void:
 		crosshair.position = get_viewport().get_mouse_position()
 	if _shot_dir != "":
 		_shot_t += delta
-		walker.input_dir = 1.0 if _shot_t > 2.0 else 0.0
+		walker.input_dir = 0.0 if _shot_t < 2.0 else (1.0 if _shot_t < 3.72 else -1.0)
 		walker.aim_point = walker.hip_position() + Vector2(650, -260)
 		walker.firing = _shot_t > 2.5
 		if (_shots_taken == 0 and _shot_t > 1.5) or (_shots_taken == 1 and _shot_t > 4.0):

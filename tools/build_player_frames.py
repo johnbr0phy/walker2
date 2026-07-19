@@ -74,6 +74,31 @@ for i, f in enumerate(frames):
     arr[:, :, 3] = (arr[:, :, 3] * ramp[:, None]).astype(np.uint8)
     Image.fromarray(arr).save(f"{OUT}/legs/legs_{i:03d}.png")
 
+# Turn strip (right-facing -> left-facing legs). One canonical direction:
+# the rig's mirror handles left->right. Frames are 400x420 from a different
+# harvest, so re-anchor each one onto the shared 378x420 canvas with the
+# torso pinned at the same x as the walk frames.
+TURN_SRC = "assets/designs/animation/turn/right_to_left"
+turn_frames = sorted(glob.glob(f"{TURN_SRC}/turn_*.png"))
+os.makedirs(f"{OUT}/turn", exist_ok=True)
+turn_bob = []
+for i, f in enumerate(turn_frames):
+    im = Image.open(f).convert("RGBA")
+    alpha = np.asarray(im)[:, :, 3] > 32
+    cx, top = torso_box(alpha)
+    dx = int(round(cx0 - cx))
+    shifted = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    shifted.paste(im, (dx, 0))
+    turn_bob.append(int(top - top0))
+
+    arr = defringe(np.array(shifted))
+    ramp = np.zeros(H, dtype=np.float32)
+    ramp[CUT_Y:] = 1.0
+    for k in range(FEATHER):
+        ramp[CUT_Y - FEATHER + k] = k / FEATHER
+    arr[:, :, 3] = (arr[:, :, 3] * ramp[:, None]).astype(np.uint8)
+    Image.fromarray(arr).save(f"{OUT}/turn/turn_{i:03d}.png")
+
 # Torso plate from stabilized frame 0: everything above the cut, feathered hem.
 im0 = Image.open(frames[0]).convert("RGBA")
 arr = defringe(np.array(im0))
@@ -91,9 +116,11 @@ meta = {
     "waist": [int(round(cx0)), CUT_Y],   # waist pivot in frame coords
     "torso_size": [W, CUT_Y + FEATHER],
     "bob": bob,                          # per-frame torso dy vs frame 0
+    "turn_count": len(turn_frames),
+    "turn_bob": turn_bob,
     "source_fps": 24,
 }
 with open(f"{OUT}/frames.json", "w") as fh:
     json.dump(meta, fh)
-print(f"wrote {LOOP_END} legs frames, torso {torso.size}, waist {meta['waist']}, "
-      f"bob range {min(bob)}..{max(bob)}")
+print(f"wrote {LOOP_END} legs frames, {len(turn_frames)} turn frames, "
+      f"torso {torso.size}, waist {meta['waist']}, bob range {min(bob)}..{max(bob)}")

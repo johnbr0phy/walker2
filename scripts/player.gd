@@ -23,6 +23,7 @@ extends RigidBody2D
 @export_group("Animation")
 @export var anim_fps := 30.0               # legs playback rate at full speed
 @export var min_anim_speed := 0.35         # never crawl slower than this while moving
+@export var turn_fps := 110.0              # turn strip playback rate (73 frames ~= 0.66 s)
 
 @export_group("Aim & fire")
 @export var aim_up_max_deg := 70.0
@@ -58,6 +59,10 @@ var _since_grounded := 0.0
 var _fire_cooldown := 0.0
 var _flash_t := 0.0
 var _bob: Array = []
+var _turn_bob: Array = []
+var _turn_count := 0
+var _turning := false
+var _turn_progress := 0.0
 
 var _rig: Node2D
 var _legs: AnimatedSprite2D
@@ -98,6 +103,8 @@ func _build_visuals() -> void:
 	# missing files fall back to the Assets placeholder so the game never dies.
 	var meta := _load_meta()
 	_bob = meta.get("bob", [0])
+	_turn_bob = meta.get("turn_bob", [0])
+	_turn_count = int(meta.get("turn_count", 0))
 	var count: int = meta.get("frame_count", 1)
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
@@ -106,6 +113,11 @@ func _build_visuals() -> void:
 	sf.set_animation_speed("walk", anim_fps)
 	for i in count:
 		sf.add_frame("walk", Assets.tex("res://assets/player/legs/legs_%03d.png" % i))
+	sf.add_animation("turn")
+	sf.set_animation_loop("turn", false)
+	sf.set_animation_speed("turn", turn_fps)
+	for i in _turn_count:
+		sf.add_frame("turn", Assets.tex("res://assets/player/turn/turn_%03d.png" % i))
 	_legs = AnimatedSprite2D.new()
 	_legs.sprite_frames = sf
 	_legs.animation = "walk"
@@ -150,29 +162,57 @@ func _physics_process(delta: float) -> void:
 	_since_grounded = 0.0 if grounded else _since_grounded + delta
 	var driveable := _since_grounded < drive_coyote_time
 
+	# --- facing: reversing on the ground plays the turn strip; airborne
+	# (boost hover) there are no planted feet, so the flip is free ---
+	var want_dir := signf(dir) if absf(dir) > 0.05 else 0.0
+	if not _turning and want_dir != 0.0 and want_dir != _move_facing:
+		if grounded and _turn_count > 1:
+			_turning = true
+			_turn_progress = 0.0
+		else:
+			_move_facing = want_dir
+
 	# --- drive: momentum-first, no instant velocity writes ---
 	if driveable:
-		if absf(dir) > 0.05:
+		if absf(dir) > 0.05 and not _turning:
 			var accel := clampf((dir * walk_speed - linear_velocity.x) * 8.0,
 					-drive_accel, drive_accel)
 			apply_central_force(Vector2(accel * mass, 0))
-			_move_facing = signf(dir)
 		else:
 			var brake := clampf(-linear_velocity.x * 10.0, -brake_accel, brake_accel)
 			apply_central_force(Vector2(brake * mass, 0))
 
-	# --- legs animation: rate follows actual ground speed ---
+	# --- legs animation ---
+	if _turning:
+		# Commanding the old direction again unwinds the turn from where it is.
+		var fwd := -1.0 if want_dir == _move_facing else 1.0
+		_turn_progress += turn_fps * delta * fwd
+		if _turn_progress >= float(_turn_count - 1):
+			_move_facing = -_move_facing
+			_turning = false
+		elif _turn_progress <= 0.0:
+			_turning = false
+		else:
+			_legs.stop()
+			_legs.animation = "turn"
+			_legs.frame = int(_turn_progress)
+			_torso_pivot.position.y = float(_turn_bob[_legs.frame]) \
+					if _legs.frame < _turn_bob.size() else 0.0
+	if not _turning:
+		if _legs.animation != "walk":
+			_legs.animation = "walk"
+			_legs.frame = 0
+		var speed_frac := absf(linear_velocity.x) / walk_speed
+		if speed_frac > 0.06:
+			_legs.speed_scale = maxf(speed_frac, min_anim_speed) \
+					* signf(linear_velocity.x) * _move_facing
+			if not _legs.is_playing():
+				_legs.play("walk")
+		else:
+			_legs.stop()
+			_legs.frame = 0
+		_torso_pivot.position.y = float(_bob[_legs.frame]) if _legs.frame < _bob.size() else 0.0
 	_rig.scale.x = _move_facing
-	var speed_frac := absf(linear_velocity.x) / walk_speed
-	if speed_frac > 0.06:
-		_legs.speed_scale = maxf(speed_frac, min_anim_speed) \
-				* signf(linear_velocity.x) * _move_facing
-		if not _legs.is_playing():
-			_legs.play("walk")
-	else:
-		_legs.stop()
-		_legs.frame = 0
-	_torso_pivot.position.y = float(_bob[_legs.frame]) if _legs.frame < _bob.size() else 0.0
 
 	# --- aim & fire ---
 	_update_aim()
